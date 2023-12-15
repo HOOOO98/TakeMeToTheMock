@@ -1,70 +1,108 @@
-# Getting Started with Create React App
+# MSW를 이용하여 Mock Server 와 API 미리 맞춰보기
+[postman으로도 가능하다.](https://github.com/HOOOO98/TakeMeToTheMock/tree/postman?tab=readme-ov-file#postman%EC%9D%84-%EC%9D%B4%EC%9A%A9%ED%95%98%EC%97%AC-mock-server%EC%99%80-api%EB%A5%BC-%EC%97%B0%EC%8A%B5%ED%95%B4%EB%B3%B4%EC%9E%90)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## msw 설정하기
+- 디펜던시 설치하기<br>
+`npm install msw --save-dev`
 
-## Available Scripts
+- public 폴더에 CLI 설치하기<br>
+  `npx msw init public/ --save`
 
-In the project directory, you can run:
+- 생선된 파일 확인하기
+  - mockServiceWorker.js : CLI로 자동 생성된 파일
+```
+  /* eslint-disable */
+/* tslint:disable */
 
-### `npm start`
+/**
+ * Mock Service Worker (2.0.11).
+ * @see https://github.com/mswjs/msw
+ * - Please do NOT modify this file.
+ * - Please do NOT serve this file on production.
+ */
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+const INTEGRITY_CHECKSUM = 'c5f7f8e188b673ea4e677df7ea3c5a39'
+const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
+const activeClientIds = new Set()
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+self.addEventListener('install', function () {
+  self.skipWaiting()
+})
 
-### `npm test`
+...
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+async function respondWithMock(response) {
+  // Setting response status code to 0 is a no-op.
+  // However, when responding with a "Response.error()", the produced Response
+  // instance will have status code set to 0. Since it's not possible to create
+  // a Response instance with status code 0, handle that use-case separately.
+  if (response.status === 0) {
+    return Response.error()
+  }
 
-### `npm run build`
+  const mockedResponse = new Response(response.body, response)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+  Reflect.defineProperty(mockedResponse, IS_MOCKED_RESPONSE, {
+    value: true,
+    enumerable: true,
+  })
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+  return mockedResponse
+}
+```
+  - src/mocks/handler.js : 응답할 api
+```
+import { HttpResponse, http } from "msw";
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+const todos = ["postman", "msw"];
 
-### `npm run eject`
+export const handlers = [
+  http.get("/main", () => {
+    return HttpResponse.json(todos);
+  }),
+];
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```
+  - src/mocks/workers.js : 서버에서 request 가로챌 코드
+```
+import { setupWorker } from "msw/browser";
+import { handlers } from "./handlers";
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+export const worker = setupWorker(...handlers);
+```
+  - src/api/request.js : 요청할 api
+```
+export const api = {
+  testMockServer: () => {
+    return fetch("/main", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }).then((res) => res.json());
+  },
+};
+```
+  -src/index.js : entry point에서 서버를 시작해 줘야 한다.
+```
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import reportWebVitals from "./reportWebVitals";
+import { worker } from "./mocks/workers";
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+worker.start();
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 
-## Learn More
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
