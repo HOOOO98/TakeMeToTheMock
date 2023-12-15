@@ -1,4 +1,5 @@
-# Postman을 이욯하여 Mock Server와 API를 연습해보자.
+# Postman을 이용하여 Mock Server와 API를 연습해보자.
+아니면 MSW도 이용해도 된다.
 
 
 ## Mock Server를 사용하는 이유
