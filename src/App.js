@@ -10,6 +10,7 @@ function App() {
     api
       .testMockServer()
       .then((response) => {
+        console.log(response);
         setStatus(response.status);
         setData(response.data);
       })
